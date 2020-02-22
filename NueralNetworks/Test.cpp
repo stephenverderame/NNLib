@@ -4,10 +4,13 @@
 #include <time.h>
 #include "MNIST.h"
 #include "AdvancedFeedForward.h"
+#include "Layer.h"
+/*
 #define relu(x) ((x) >= 0 ? (x) : ((x) / 20.0))
 #define reluP(x) ((x) >= 0 ? 1 : (1.0 / 20.0))
 #define sig(x) (1.0 / (1 + exp(-(x))))
 #define sigP(x) (sig(x) * (1 - sig(x)))
+*/
 int main() {
 /*	auto ff = NetworkSerializer::loadNet("xorModel.net");
 	ff->setActivation(sigmoid, sigmoidP); 
@@ -152,12 +155,13 @@ int main() {
 	printf("%d / %d correct! (%.2f%%)\n", correct, iterations, (float)correct / iterations * 100.f);
 	NetworkSerializer::saveNet(&ff, nt_feedForward, "bigMnistModel.net");
 	*/
-	convData c(5, 2, 1, 10);
-	activationData a(reLu, d_reLu);
+	convData c(5, 2, 1, 10, 1, true);
+	convData c2(5, 2, 1, 10, 10, true);
+	activationData a(fsig_m, d_fsig_m);
 	poolData p(2, 2);
-	fcData fc(/*6760 26 x 26 x 10*/ 1690, 10);
+	fcData fc(/*6760 26 x 26 x 10*/ 14 * 14 * 10, 10);
 //	AdvancedFeedForward net(28, 1, 10, {&c, &a, &c, &a, &p, &c, &a, &c, &a, &fc});
-	AdvancedFeedForward net(28, 1, 10, { &c, &a, &p, &fc });
+	AdvancedFeedForward net(28, 1, 10, { &c, &a, &c2, &a, &c2, &a, &p, &fc, &a});
 	Matrix<> test(28, 28);
 	randomize(test);
 	Vector<> out = net.calculate((Vector<>)test);

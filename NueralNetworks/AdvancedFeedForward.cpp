@@ -16,7 +16,7 @@ AdvancedFeedForward::AdvancedFeedForward(size_t inS, size_t inD, size_t outS, st
 {
 	for (layerData * l : layers) {
 		if (convData * c = layer_cast<convData>(l))
-			this->layers.push_back(New(ConvLayer, c->filterSize, c->filters, c->stride, c->padding));
+			this->layers.push_back(New(ConvLayer, c->filterSize, c->filters, c->depth, c->stride, c->padding, c->sharing));
 		else if (poolData * p = layer_cast<poolData>(l))
 			this->layers.push_back(New(PoolingLayer, p->poolSize, p->stride));
 		else if (activationData * a = layer_cast<activationData>(l))

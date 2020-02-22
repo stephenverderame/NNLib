@@ -66,6 +66,7 @@ const static ActivationFunction leakyReLuP = [](const Vector<> & v) -> Vector<> 
 const static auto sig = [](double x) -> double {
 	return 1.0 / (1 + exp(-x));
 };
+#define sigP(X) (sig(X) * (1 - sig(X)))
 const static ActivationFunction sigmoid = [](const Vector<> & v) -> Vector<> {
 	Vector<> out(v.size());
 	size_t index = 0;

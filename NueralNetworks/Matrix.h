@@ -121,6 +121,7 @@ public:
 	size_t size() const {
 		return data.size();
 	}
+	/**@return the column vector of column index*/
 	Vector<T> getVector(size_t index) const {
 		Vector<T> v(data.size());
 		size_t i = 0;
@@ -171,20 +172,28 @@ public:
 	std::vector<T> getData() {
 		return data;
 	}
+	/**
+	* Applies a kernel convolution onto the matrix [in] with a stride [stride]
+	* @precondition: kernel is odd sized square matrix and fits into kernel
+	* convolves the kernel onto the matrix by lining up the kernel with each kernel sized sub-matrix of the matrix
+	* the dot product is computed and the result becomes the element in the output matrix which corresponds to the element that lines up with the center of the kernel
+	*/
 	Matrix<T> applyAsKernel(const Matrix<T> & in, size_t stride) const {
-		//this implementation does not automatically assume inputs are zero padded
-		assert(_cols == _rows && _cols % 2 && "Kernel must be an odd sized square matrix");
-		assert(in.cols() == in.rows() && (in.cols() - _cols) % stride == 0 && "Input must be square and kernel must fit");
-		Matrix<T> mat((in.rows() - _rows) / stride + 1, (in.cols() - _cols) / stride + 1);
+		//this implementation does not handle padding, input should already be zero padded
+		const size_t kernelCols = _cols;
+		const size_t kernelRows = _rows;
+		assert(kernelCols == kernelRows && kernelCols % 2 && "Kernel must be an odd sized square matrix");
+		assert(in.cols() == in.rows() && (in.cols() - kernelCols) % stride == 0 && "Input must be square and kernel must fit");
+		Matrix<T> mat((in.rows() - kernelRows) / stride + 1, (in.cols() - kernelCols) / stride + 1);
 		size_t k = 0;
 		for (size_t i = 0; i < in.size(); i += stride) {
 			int x = i % in.cols();
 			int y = i / in.cols();
-//			if (x - ((_cols - 1) / 2) < 0 || x + (_cols - 1) >= in.cols() || y - ((_rows - 1) / 2) < 0 || y + ((_rows - 1) / 2) >= in.rows()) continue;
-			if (x + _cols >= in.cols() || y + _rows >= in.rows()) continue;
+//			if (x - ((kernelCols - 1) / 2) < 0 || x + (kernelCols - 1) >= in.cols() || y - ((kernelRows - 1) / 2) < 0 || y + ((kernelRows - 1) / 2) >= in.rows()) continue;
+			if (x + kernelCols >= in.cols() || y + kernelRows >= in.rows()) continue;
 			double sum = 0;
-			for (int y1 = 0; y1 < _rows; ++y1) {
-				for (int x1 = 0; x1 < _cols; ++x1) {
+			for (int y1 = 0; y1 < kernelRows; ++y1) {
+				for (int x1 = 0; x1 < kernelCols; ++x1) {
 					if (x + x1 >= 0 && x + x1 < in.cols() && y + y1 >= 0 && y + y1 < in.rows()) {
 						sum += get(y1, x1) * in.get(y + y1, x + x1);
 					}
@@ -194,18 +203,22 @@ public:
 		}
 		return mat;
 	}
+	/**
+	* Zero pads the matrix by creating a border of thickness [border] around the matrix
+	*/
 	Matrix<T> zeroPad(size_t border = 1) const {
 		//zero pad by 1 for 3x3 filter, 2 for 5x5 and 3 for 7x7 (assuming a stride of 1)
-		Matrix<T> out(_rows + border, _cols + border);
-		for (size_t i = 0; i < out.rows(); ++i) {
-			if (i < border || i >= _rows + border) continue;
-			for (size_t j = 0; j < out.cols(); ++j) {
-				if (j < border || j >= _cols + border) continue;
-				out(i, j) = get(i - border, j - border);
+		Matrix<T> out(_rows + 2 * border, _cols + 2 * border);
+		for (size_t x = 0; x < _cols; ++x) {
+//			if (i < border || i >= _rows + border) continue;
+			for (size_t y = 0; y < _rows; ++y) {
+//				if (j < border || j >= _cols + border) continue;
+				out(y + border, x + border) = get(y, x);
 			}
 		}
 		return out;
 	}
+	//*@See PoolingLayer
 	Matrix<T> maxPool(size_t kernelSize, size_t stride) const {
 		Matrix<T> mat((_rows - kernelSize) / stride + 1, (_cols - kernelSize) / stride + 1);
 		size_t k = 0;
@@ -373,6 +386,7 @@ Matrix<T> operator+(const Matrix<T> & m1, const Matrix<T> & m2) {
 	return out;
 }
 
+//Element-wise matrix multiplication
 template<typename T>
 Matrix<T> hadamard(const Matrix<T> & m1, const Matrix<T> & m2) {
 	assert(m1.rows() == m2.rows() && m1.cols() == m2.cols() && "Size mismatch");
@@ -457,6 +471,7 @@ using Mat = Matrix<double>;
 using Matf = Matrix<float>;
 using Mati = Matrix<int>;
 
+//Fills the matrix  m with random numbers ranging from 0 to 1
 const static void randomize(Matrix<> & m) {
 	for (size_t i = 0; i < m.size(); ++i)
 		m[i] = (double)rand() / RAND_MAX;

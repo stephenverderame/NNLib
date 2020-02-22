@@ -11,8 +11,11 @@ struct layerData {
 	layerData(layer_t t) : type(t) {};
 };
 struct convData : public layerData {
-	size_t filterSize, padding, stride, filters;
-	convData(size_t fSize, size_t pad, size_t stride, size_t filters) : layerData(layer_t::conv), filterSize(fSize), padding(pad), stride(stride), filters(filters) {};
+	size_t filterSize, padding, stride, filters, depth;
+	bool sharing;
+	//if stride is 1, padding can be set to -1 to autocalculate valid padding
+	convData(size_t fSize, size_t pad, size_t stride, size_t filters, size_t inputDepth, bool sharing) : layerData(layer_t::conv), filterSize(fSize), padding(pad), stride(stride), 
+		filters(filters), depth(inputDepth), sharing(sharing) {};
 };
 struct poolData : public layerData {
 	size_t poolSize, stride;
@@ -27,7 +30,7 @@ struct fcData : public layerData {
 	fcData() : layerData(layer_t::fullyConnected), isize(0), osize(0) {};
 	fcData(size_t inputSize, size_t outputSize) : layerData(layer_t::fullyConnected), isize(inputSize), osize(outputSize) {};
 };
-
+//TMP helpers for layer_cast(). 
 template<typename T, typename = void>
 struct is_conv : std::false_type {};
 template<typename T>
@@ -50,14 +53,10 @@ template<typename T>
 class castHelper {
 //	friend std::unique_ptr<T> layer_cast(std::unique_ptr<layerData>);
 
+	/**
+	* This is essentially a jump table to optimize the layer cast. Uses the layer_t type in all layerData objects to index and call the correct TMP type check
+	*/
 	const static std::function<T*(layerData*)> retTable[static_cast<size_t>(layer_t::count)];
-
-/*	const static std::function<std::unique_ptr<T>(std::unique_ptr<layerData>&&)> uRetTable[static_cast<size_t>(layer_t::count)] = {
-		[](std::unique_ptr<layerData>&& ptr) -> std::unique_ptr<T> {return is_conv<T>::value ? std::make_unique<T>(static_cast<T*>(ptr.release())) : nullptr; },
-		[](std::unique_ptr<layerData>&& ptr) -> std::unique_ptr<T> {return is_pool<T>::value ? std::make_unique<T>(static_cast<T*>(ptr.release())) : nullptr; },
-		[](std::unique_ptr<layerData>&& ptr) -> std::unique_ptr<T> {return is_act<T>::value ? std::make_unique<T>(static_cast<T*>(ptr.release())) : nullptr; },
-		[](std::unique_ptr<layerData>&& ptr) -> std::unique_ptr<T> {return is_fc<T>::value ? std::make_unique<T>(static_cast<T*>(ptr.release())) : nullptr; }
-	};*/
 public:
 	static T * layerCast(layerData * ptr) {
 		if (static_cast<size_t>(ptr->type) >= 0 && static_cast<size_t>(ptr->type) < static_cast<size_t>(layer_t::count))
@@ -66,6 +65,10 @@ public:
 	}
 };
 
+/**
+* Casts the passed layer data pointer to a layerData pointer of type T
+* If the passed pointer is not of type T, returns nullptr
+*/
 template<typename T>
 const auto layer_cast = castHelper<T>::layerCast;
 

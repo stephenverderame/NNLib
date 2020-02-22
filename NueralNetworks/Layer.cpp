@@ -14,22 +14,36 @@ void Layer::setPreviousLayer(Layer * p)
 	previous = p;
 }
 
-ConvLayer::ConvLayer(size_t size, size_t depth, size_t stride, size_t padding) : stride(stride), padding(padding)
+ConvLayer::ConvLayer(size_t size, size_t numKernels, size_t depth, size_t stride, size_t padding, bool paramSharing) : stride(stride), padding(padding), parameterSharing(paramSharing)
 {
-	biases.resize(depth, 0);
-	for (size_t i = 0; i < depth; ++i) {
-		kernels.emplace_back(size, size);
-		randomize(kernels[i]);
+	if (padding == -1 && stride == 1) padding = (size - 1) / 2; //assuming a stride of 1, this is the zero padding needed to prevent downsizing
+	biases.resize(numKernels, 0);
+	for (size_t i = 0; i < numKernels; ++i) {
+		std::vector<Matrix<>> kernel;
+		for (size_t j = 0; j < depth; ++j) {
+			kernel.emplace_back(size, size);
+			randomize(kernel[j]);
+		}
+		kernels.push_back(kernel);
 	}
 	randomize(biases);
 }
 
 std::vector<Matrix<>> ConvLayer::calculate(std::vector<Matrix<>>& inputs)
 {
+	/**
+	* Each kenel has an equal depth to the input depth. If parameter sharing is enabled, every kernel has the same weights for all of its depth
+	*/
+	assert(kernels[0].size() == inputs.size() && "Depth between conv layer and input doesn't match");
 	std::vector<Matrix<>> out;
 	for (size_t i = 0; i < kernels.size(); ++i) {
-		out.push_back(kernels[i].applyAsKernel(inputs[i % inputs.size()].zeroPad(padding), stride));
-		out[i] += biases[i];
+		Matrix<> temp((inputs[0].rows() - kernels[0][0].rows() + 2 * padding) / stride + 1, (inputs[0].rows() - kernels[0][0].rows() + 2 * padding) / stride + 1);
+		for (size_t j = 0; j < inputs.size(); ++j) {
+			size_t kernelDepth = parameterSharing ? 0 : j;
+			temp += kernels[i][kernelDepth].applyAsKernel(inputs[j].zeroPad(padding), stride);
+		}
+		temp += biases[i];
+		out.push_back(temp);
 	}
 	return out;
 }
@@ -41,7 +55,8 @@ std::vector<Matrix<>> ConvLayer::backprop(std::vector<Matrix<>>& costs)
 
 std::vector<Matrix<>> ConvLayer::getWeights()
 {
-	return kernels;
+	assert("Not implemented yet");
+	return kernels[0];
 }
 
 ActivationLayer::ActivationLayer(Activation f, Activation fP) : function(f), functionPrime(fP)
