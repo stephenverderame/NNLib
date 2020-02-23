@@ -1,13 +1,12 @@
 #pragma once
 #include "Vector.h"
-;
 template<typename T = double>
 class Matrix {
 private:
 	std::vector<T> data;
 	size_t _rows, _cols;
 public:
-	Matrix() = default;
+	Matrix() : _rows(0), _cols(0) {};
 	Matrix(size_t row, size_t col) : _rows(row), _cols(col) {
 		data.resize(row * col, 0);
 	}
@@ -41,6 +40,10 @@ public:
 		_cols = 1;
 		return *this;
 	}
+	Matrix<T>& operator=(const T & scalar) {
+		for (int i = 0; i < data.size(); ++i)
+			data[i] = scalar;
+	}
 	T& operator[](size_t index) {
 		return data[index];
 	}
@@ -48,7 +51,7 @@ public:
 		return data[row * _cols + col];
 	}
 	void resize(size_t row, size_t col) {
-		data.resize(row * col);
+		data.resize(row * col, 0);
 		_rows = row;
 		_cols = col;
 	}
@@ -78,7 +81,9 @@ public:
 		}
 		return *this;
 	}
+	//If matrix is not initialized, mat is initialized with 0 to work with [other]
 	Matrix<T>& operator-=(const Matrix<T> & other) {
+		if (_rows == 0 && _cols == 0) resize(other.rows(), other.cols());
 		size_t index = 0;
 		size_t s = data.size();
 		switch (s % 4) {
@@ -95,7 +100,9 @@ public:
 		}
 		return *this;
 	}
+	//If matrix is not initialized, mat is initialized with 0 to fit with [other]
 	Matrix<T>& operator+=(const Matrix<T> & other) {
+		if (_rows == 0 && _cols == 0) resize(other.rows(), other.cols());
 		size_t index = 0;
 		size_t s = data.size();
 		switch (s % 4) {
@@ -237,6 +244,14 @@ public:
 			}
 		}
 		return mat;
+	}
+	/**
+	* Rotates the matrix by 180 degrees. This essentially reverses the order of elements
+	*/
+	Matrix<T> rotate180() const {
+		Matrix<T> out(_rows, _cols);
+		out.data.insert(out.data.end(), data.rbegin(), data.rend());
+		return out;
 	}
 
 };
@@ -475,4 +490,10 @@ using Mati = Matrix<int>;
 const static void randomize(Matrix<> & m) {
 	for (size_t i = 0; i < m.size(); ++i)
 		m[i] = (double)rand() / RAND_MAX;
+}
+
+//Kernel convolution where the matrix is zero padded correctly so the kernel's bottom right element corresponds to the matrix's top left element
+template<typename T>
+Matrix<T> fullKernelConvolution(const Matrix<T> & kernel, const Matrix<T> & mat) {
+	return kernel.applyAsKernel(mat.zeroPad(kernel.cols() - 1), 1);
 }

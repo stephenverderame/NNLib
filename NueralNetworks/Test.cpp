@@ -155,18 +155,21 @@ int main() {
 	printf("%d / %d correct! (%.2f%%)\n", correct, iterations, (float)correct / iterations * 100.f);
 	NetworkSerializer::saveNet(&ff, nt_feedForward, "bigMnistModel.net");
 	*/
-	convData c(5, 2, 1, 10, 1, true);
-	convData c2(5, 2, 1, 10, 10, true);
+	convData c(5, 10, true);
+//	convData c2(5, 2, 1, 10, 10, true);
 	activationData a(fsig_m, d_fsig_m);
-	poolData p(2, 2);
-	fcData fc(/*6760 26 x 26 x 10*/ 14 * 14 * 10, 10);
+	poolData p;
+	fcData fc(10);
 //	AdvancedFeedForward net(28, 1, 10, {&c, &a, &c, &a, &p, &c, &a, &c, &a, &fc});
-	AdvancedFeedForward net(28, 1, 10, { &c, &a, &c2, &a, &c2, &a, &p, &fc, &a});
+	AdvancedFeedForward net({ 28, 28, 1 }, {1, 10, 1}, { &c, &a, &c, &a, &p, &fc, &a });
 	Matrix<> test(28, 28);
 	randomize(test);
 	Vector<> out = net.calculate((Vector<>)test);
 	std::cout << out << std::endl;
 	std::cout << "Size: " << out.size() << std::endl;
+	Vector<> testReal(10);
+	testReal[3] = 1.0;
+	net.backprop(out, testReal);
 	getchar();
 	return 0;
 }

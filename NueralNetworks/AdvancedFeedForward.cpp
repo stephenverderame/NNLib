@@ -12,20 +12,37 @@ AdvancedFeedForward::AdvancedFeedForward()
 {
 }
 
-AdvancedFeedForward::AdvancedFeedForward(size_t inS, size_t inD, size_t outS, std::initializer_list<layerData *> layers) : inSize(inS), inDepth(inD), outSize(outS)
+AdvancedFeedForward::AdvancedFeedForward(dimensionData inS, dimensionData outS, std::initializer_list<layerData *> layers) : inSize(inS), outSize(outS)
 {
 	for (layerData * l : layers) {
-		if (convData * c = layer_cast<convData>(l))
-			this->layers.push_back(New(ConvLayer, c->filterSize, c->filters, c->depth, c->stride, c->padding, c->sharing));
-		else if (poolData * p = layer_cast<poolData>(l))
+		switch (l->type) {
+		case layer_t::conv:
+		{
+			auto c = static_cast<convData*>(l);
+			this->layers.push_back(New(ConvLayer, c->kernelSize, c->kernels, c->stride, c->padding, c->sharing));
+			break;
+		}
+		case layer_t::pooling:
+		{
+			auto p = static_cast<poolData*>(l);
 			this->layers.push_back(New(PoolingLayer, p->poolSize, p->stride));
-		else if (activationData * a = layer_cast<activationData>(l))
+			break;
+		}
+		case layer_t::activation:
+		{
+			auto a = static_cast<activationData*>(l);
 			this->layers.push_back(New(ActivationLayer, a->function, a->derivative));
-		else if (fcData * f = layer_cast<fcData>(l))
-			this->layers.push_back(New(FCLayer, f->isize, f->osize));
+			break;
+		}
+		case layer_t::fullyConnected:
+		{
+			auto f = static_cast<fcData*>(l);
+			this->layers.push_back(New(FCLayer, f->osize));
+			break;
+		}
+		}
 	}
-	for (size_t i = this->layers.size() - 1; i > 0; --i)
-		this->layers[i]->setPreviousLayer(this->layers[i - 1].get());
+	connectLayers();
 }
 
 
@@ -35,7 +52,7 @@ AdvancedFeedForward::~AdvancedFeedForward()
 
 Vector<> AdvancedFeedForward::calculate(const Vector<>& input) const
 {
-	std::vector<Matrix<>> temp = v2m(input, inSize, inSize, inDepth);
+	std::vector<Matrix<>> temp = v2m(input, inSize.width, inSize.height, inSize.depth);
 	for (size_t i = 0; i < layers.size(); ++i)
 		temp = layers[i]->calculate(temp);
 	return m2v(temp);
@@ -43,6 +60,41 @@ Vector<> AdvancedFeedForward::calculate(const Vector<>& input) const
 
 void AdvancedFeedForward::backprop(const Vector<>& out, const Vector<>& real)
 {
+	Matrix<> gradient = static_cast<Matrix<>>(2.0 * (real - out));
+	std::vector<Mat> grads;
+	grads.push_back(gradient);
+	for (size_t i = layers.size() - 1; i >= 0; --i) {
+		layers[i]->backprop(grads);
+	}
+}
+
+void AdvancedFeedForward::setLearningRates(std::initializer_list<double> rates)
+{
+	assert((rates.size() == layers.size() && rates.size() > 1) && "Each layer must have a learning rate!");
+	if (rates.size() == 1) {
+		for (auto& l : layers) {
+			l->setLearningRate(*rates.begin());
+		}
+	}
+	else {
+		size_t i = 0;
+		for (auto r : rates) {
+			layers[i++]->setLearningRate(r);
+		}
+	}
+
+}
+
+void AdvancedFeedForward::connectLayers()
+{
+	dimensionData in = inSize;
+	Layer * prev = nullptr;
+	for (size_t i = 0; i < layers.size(); ++i) {
+		layers[i]->setPreviousLayer(prev);
+		prev = layers[i].get();
+		in = layers[i]->connectLayer(in);
+	}
+	assert(in.depth == outSize.depth && in.height == outSize.height && in.width == outSize.width && "Output size mismatch");
 }
 
 Vector<> AdvancedFeedForward::m2v(std::vector<Matrix<>> mat3d)

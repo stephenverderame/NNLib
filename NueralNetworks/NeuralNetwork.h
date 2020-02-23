@@ -3,6 +3,10 @@
 #include <functional>
 #include <memory>
 using ActivationFunction = std::function < Vector<>(const Vector<> &)>;
+struct dimensionData
+{
+	size_t width, height, depth;
+};
 enum NetworkTypes : uint16_t {
 	nt_null = 0,
 	nt_feedForward = 'FF'

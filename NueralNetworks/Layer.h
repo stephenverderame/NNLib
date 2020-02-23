@@ -4,31 +4,61 @@
 #include <functional>
 #include "NeuralNetwork.h"
 using Activation = std::function<Matrix<>(const Matrix<> &)>;
+//Any layer hyperparameter can be set to this for a default paramater
+constexpr size_t defaultVal = ~0;
 class Layer
 {
 protected:
 	std::vector<Matrix<>> temp;
 	//Pointer to previous layer. Assumed to have an equal lifetime as this layer. Not a resource of Layer class
 	Layer * previous;
+	dimensionData inputDimensions, outputDimensions;
+	double learningRate;
+protected:
+	//Helper function for backprop from a fully connected layer to a convolutional or pooling layer
+	std::vector<Matrix<>> unflatten(const Matrix<> & vector, const dimensionData & dims);
+
+	/**
+	* @return the layer's output dimensions
+	* the outputDim struct is set by the encapsulating public connectLayer method
+	* Required to be called to finish initialization of some layers
+	* When this function is called, inputDimensions is guarunteed to be defined
+	*/
+	virtual dimensionData connectLayerVirtual() = 0;
 public:
 	Layer();
 	~Layer();
 	void setPreviousLayer(Layer * p);
+	dimensionData getOutputDimensions();
+	void setLearningRate(double r);
+	double getLearningRate();
+
+	/**
+	* @param input, dimensions of this layer's input
+	* @return, the dimensions of this layer's output
+	* Based on layer hyperparameter and the input dimensions, calculates the output dimensions;
+	* Also sets the internal input and output dimension structs
+	* Required to be called to finish initialization of some layers
+	*/
+	dimensionData connectLayer(dimensionData input);
 public:
 	virtual std::vector<Matrix<>> calculate(std::vector<Matrix<>> & inputs) = 0;
+	/**
+	* @param costs, the gradient [direction the output should move towards] of the current layer
+	* @return, the gradient for the previous layer
+	*/
 	virtual std::vector<Matrix<>> backprop(std::vector<Matrix<>> & costs) = 0;
-	virtual std::vector<Matrix<>> getWeights() = 0;
 };
 class ConvLayer : public Layer {
 private:
 	std::vector<std::vector<Matrix<>>> kernels;
 	//each kernel has a bias that is added to the result of every dot product
 	std::vector<double> biases;
-	size_t stride, padding;
+	size_t stride, padding, kernelSize;
 	bool parameterSharing;
 public:
 	/**
-	* @param size, the size of the convolution kernels
+	* @param size, the size of the convolution kernels. Kernels are expected to be square
 	* @param kernels, the amount of convolution filters/kernels. Each kernel has a depth of the input
 	* @param stride, the stride of each kernel
 	* @param padding, the zero padding applied to the image. Don't set to automatically use a zero padding that prevents downsizing
@@ -37,10 +67,14 @@ public:
 	* @param paramSharing, kernels share weights for every depth. In practice this reduces the amount of kernels bc each kernel depth does not have its own unique set of weights
 	*  dot product at each depth and sum the result for a final output value
 	*/
-	ConvLayer(size_t size, size_t kernelNum, size_t depth, size_t stride = 1, size_t padding = -1, bool paramSharing = true);
+	ConvLayer(size_t size, size_t kernelNum, size_t stride = 1, size_t padding = defaultVal, bool paramSharing = true);
+	/**
+	* Returns an output of size (input.width - filter.width + 2 * padding) / stride + 1 with a depth of filterNum
+	*/
 	std::vector<Matrix<>> calculate(std::vector<Matrix<>> & inputs) override;
 	std::vector<Matrix<>> backprop(std::vector<Matrix<>> & costs) override;
-	std::vector<Matrix<>> getWeights() override;
+protected:
+	dimensionData connectLayerVirtual() override;
 };
 class ActivationLayer : public Layer {
 private:
@@ -50,7 +84,8 @@ public:
 	ActivationLayer(Activation f, Activation fP);
 	std::vector<Matrix<>> calculate(std::vector<Matrix<>> & inputs) override;
 	std::vector<Matrix<>> backprop(std::vector<Matrix<>> & costs) override;
-	std::vector<Matrix<>> getWeights() override;
+protected:
+	dimensionData connectLayerVirtual() override;
 };
 class PoolingLayer : public Layer {
 private:
@@ -66,25 +101,26 @@ public:
 	PoolingLayer(size_t size = 2, size_t stride = 2);
 	std::vector<Matrix<>> calculate(std::vector<Matrix<>> & inputs) override;
 	std::vector<Matrix<>> backprop(std::vector<Matrix<>> & costs) override;
-	std::vector<Matrix<>> getWeights() override;
+protected:
+	dimensionData connectLayerVirtual() override;
 };
 //Fully Connected Neural Network Layer
 //Linearizes the matrix input to a vector
 class FCLayer : public Layer {
 private:
-	size_t inputSize, outputSize;
+	size_t outputSize;
 	Matrix<> weights;
 	Vector<> biases;
-	double learningRate;
 public:
 	/**
 	* @param inputSize, total size of input matrix
 	* @param outputSize, totalSize of output vector
 	*/
-	FCLayer(size_t inputSize, size_t outputSize);
+	FCLayer(size_t outputSize);
 	std::vector<Matrix<>> calculate(std::vector<Matrix<>> & inputs) override;
 	std::vector<Matrix<>> backprop(std::vector<Matrix<>> & costs) override;
-	std::vector<Matrix<>> getWeights() override;
+protected:
+	dimensionData connectLayerVirtual() override;
 };
 
 //template<typename T> 
