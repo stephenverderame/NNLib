@@ -63,8 +63,8 @@ void AdvancedFeedForward::backprop(const Vector<>& out, const Vector<>& real)
 	Matrix<> gradient = static_cast<Matrix<>>(2.0 * (real - out));
 	std::vector<Mat> grads;
 	grads.push_back(gradient);
-	for (size_t i = layers.size() - 1; i >= 0; --i) {
-		layers[i]->backprop(grads);
+	for (int i = layers.size() - 1; i >= 0; --i) {
+		grads = layers[i]->backprop(grads);
 	}
 }
 

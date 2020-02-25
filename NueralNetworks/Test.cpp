@@ -170,6 +170,7 @@ int main() {
 	Vector<> testReal(10);
 	testReal[3] = 1.0;
 	net.backprop(out, testReal);
+	printf("Done!\n");
 	getchar();
 	return 0;
 }

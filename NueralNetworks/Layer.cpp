@@ -65,14 +65,14 @@ std::vector<Matrix<>> ConvLayer::calculate(std::vector<Matrix<>>& inputs)
 	* Each kenel has an equal depth to the input depth. If parameter sharing is enabled, every kernel has the same weights for all of its depth
 	*/
 	for (auto& i : inputs)
-		temp.push_back(i);
+		temp.push_back(i.zeroPad(padding));
 	std::vector<Matrix<>> out;
 	for (size_t i = 0; i < kernels.size(); ++i) {
 		Matrix<> buf((inputs[0].rows() - kernels[0][0].rows() + 2 * padding) / stride + 1, (inputs[0].rows() - kernels[0][0].rows() + 2 * padding) / stride + 1);
 		for (size_t j = 0; j < inputs.size(); ++j) {
 			size_t kernelDepth = parameterSharing ? 0 : j;
 			//temp is the zeropadded inputs
-			buf += kernels[i][kernelDepth].applyAsKernel(temp[j].zeroPad(padding), stride);
+			buf += kernels[i][kernelDepth].applyAsKernel(temp[j], stride);
 		}
 		buf += biases[i];
 		out.push_back(buf);
@@ -89,18 +89,17 @@ std::vector<Matrix<>> ConvLayer::backprop(std::vector<Matrix<>>& costs)
 	std::vector<Matrix<>> output;
 	for (size_t i = 0; i < costs.size(); ++i) { //dimensions of output = dimensions of gradient therefore depth of output = num kernels = depth of gradient
 		Matrix<> buf(kernels[0][0].rows(), kernels[0][0].cols());
-		Matrix<> oBuf;
 		for (size_t j = 0; j < temp.size(); ++j) {
 			//temp is the zero padded inputs
-			buf += costs[i].applyAsKernel(temp[j].zeroPad(padding), stride);
-			oBuf += fullKernelConvolution(costs[i].rotate180(), temp[j]);
+			buf += costs[i].applyAsKernel(temp[j], stride);
 		}
 		kernels[i][0] -= learningRate * buf;
 		double costSum = 0;
 		for (size_t j = 0; j < costs[i].size(); ++j)
 			costSum += costs[i][j];
 		biases[i] -= learningRate * costSum;
-		output.push_back(oBuf);
+		Matrix<> oBuf = fullKernelConvolution(kernels[i][0].rotate180(), costs[i]);
+		output.push_back(removePadding(oBuf, padding));
 	}
 	return output;
 }
@@ -178,20 +177,21 @@ std::vector<Matrix<>> PoolingLayer::backprop(std::vector<Matrix<>>& costs)
 	std::vector<Matrix<>> out;
 	for (size_t i = 0; i < temp.size(); ++i) {
 		Matrix<> buf(temp[i].rows(), temp[i].cols());
-		for (size_t j = 0; j < temp[i].size(); j += stride) {
-			size_t x = j % temp[i].cols();
-			size_t y = j / temp[i].cols();
-			std::pair<size_t, size_t> maxCoords;
-			double max = FLT_MIN;
-			for (size_t x1 = 0; x1 < size; ++x1) {
-				for (size_t y1 = 0; y1 < size; ++y1) {
-					if (temp[i](y + y1, x + x1) > max) {
-						max = temp[i](y + y1, x + x1);
-						maxCoords = std::make_pair(y + y1, x + x1);
+		size_t k = 0;
+		for (size_t x = 0; x < temp[i].cols(); x += stride) {
+			for (size_t y = 0; y < temp[i].rows(); y += stride) {
+				std::pair<size_t, size_t> maxCoords;
+				double max = FLT_MIN;
+				for (size_t x1 = 0; x1 < size; ++x1) {
+					for (size_t y1 = 0; y1 < size; ++y1) {
+						if (temp[i](y + y1, x + x1) > max) {
+							max = temp[i](y + y1, x + x1);
+							maxCoords = std::make_pair(y + y1, x + x1);
+						}
 					}
 				}
+				buf(maxCoords.first, maxCoords.second) = costs[i][k++];
 			}
-			buf(maxCoords.first, maxCoords.second) = costs[i][j];
 		}
 		out.push_back(buf);
 	}

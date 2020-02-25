@@ -44,13 +44,15 @@ public:
 		for (int i = 0; i < data.size(); ++i)
 			data[i] = scalar;
 	}
-	T& operator[](size_t index) {
+	T& operator[](size_t index) throw (UndefinedException) {
+		if (index >= data.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return data[index];
 	}
-	T& operator()(size_t row, size_t col) {
+	T& operator()(size_t row, size_t col) throw (UndefinedException) {
+		if(row * _cols + col >= data.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return data[row * _cols + col];
 	}
-	void resize(size_t row, size_t col) {
+	void resize(size_t row, size_t col) noexcept {
 		data.resize(row * col, 0);
 		_rows = row;
 		_cols = col;
@@ -82,8 +84,9 @@ public:
 		return *this;
 	}
 	//If matrix is not initialized, mat is initialized with 0 to work with [other]
-	Matrix<T>& operator-=(const Matrix<T> & other) {
+	Matrix<T>& operator-=(const Matrix<T> & other) throw(UndefinedException) {
 		if (_rows == 0 && _cols == 0) resize(other.rows(), other.cols());
+		else if (_rows != other.rows() && _cols != other.cols()) throw UndefinedException(ERR_STR("Size mismatch"));
 		size_t index = 0;
 		size_t s = data.size();
 		switch (s % 4) {
@@ -101,8 +104,9 @@ public:
 		return *this;
 	}
 	//If matrix is not initialized, mat is initialized with 0 to fit with [other]
-	Matrix<T>& operator+=(const Matrix<T> & other) {
+	Matrix<T>& operator+=(const Matrix<T> & other) throw(UndefinedException) {
 		if (_rows == 0 && _cols == 0) resize(other.rows(), other.cols());
+		else if (_rows != other.rows() && _cols != other.cols()) throw UndefinedException(ERR_STR("Size mismatch"));
 		size_t index = 0;
 		size_t s = data.size();
 		switch (s % 4) {
@@ -129,7 +133,8 @@ public:
 		return data.size();
 	}
 	/**@return the column vector of column index*/
-	Vector<T> getVector(size_t index) const {
+	Vector<T> getVector(size_t index) const throw(UndefinedException) {
+		if(index >= _cols) throw UndefinedException(ERR_STR("Index out of bounds"));
 		Vector<T> v(data.size());
 		size_t i = 0;
 		switch (v.size() % 4) {
@@ -146,7 +151,8 @@ public:
 		}
 		return v; 
 	}
-	T get(size_t row, size_t col) const {
+	T get(size_t row, size_t col) const throw(UndefinedException) {
+		if(row * _cols + col >= data.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return data[row * _cols + col];
 	}
 	std::vector<T> getRow(size_t index) const {
@@ -154,7 +160,8 @@ public:
 		vec.insert(vec.end(), data.begin() + index * _cols, data.begin() + (index + 1) * _cols);
 		return vec;
 	}
-	T get(size_t index) const {
+	T get(size_t index) const throw(UndefinedException) {
+		if(index >= data.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return data[index];
 	}
 	Matrix<T> transpose() {
@@ -166,7 +173,7 @@ public:
 		}
 		return out;
 	}
-	explicit operator Vector<T>() const {
+	explicit operator Vector<T>() const noexcept {
 		Vector<T> out(size());
 		for (size_t i = 0; i < out.size(); ++i)
 			out[i] = get(i);
@@ -176,7 +183,7 @@ public:
 		assert(this->data.size() == data.size() && "Size mismatch");
 		this->data = data;
 	}
-	std::vector<T> getData() {
+	std::vector<T> getData() noexcept {
 		return data;
 	}
 	/**
@@ -189,8 +196,9 @@ public:
 		//this implementation does not handle padding, input should already be zero padded
 		const size_t kernelCols = _cols;
 		const size_t kernelRows = _rows;
-		assert(kernelCols == kernelRows && kernelCols % 2 && "Kernel must be an odd sized square matrix");
-		assert(in.cols() == in.rows() && (in.cols() - kernelCols) % stride == 0 && "Input must be square and kernel must fit");
+//		assert(kernelCols == kernelRows && "Kernel must be a square matrix");
+//		assert(in.cols() == in.rows() && (in.cols() - kernelCols) % stride == 0 && "Input must be square and kernel must fit");
+		if (kernelCols != kernelRows && in.cols() != in.rows() && (in.cols() - kernelCols) % stride != 0) throw UndefinedException(ERR_STR("Undefined kernel convolution"));
 		Matrix<T> mat((in.rows() - kernelRows) / stride + 1, (in.cols() - kernelCols) / stride + 1);
 		size_t k = 0;
 		for (size_t i = 0; i < in.size(); i += stride) {
@@ -334,7 +342,8 @@ Matrix<T> operator+(const T scalar, const Matrix<T> & m) {
 
 template<typename T>
 Vector<T> operator*(const Matrix<T> & m, const Vector<T> & v) {
-	assert(m.cols() == v.size() && "Size mismatch");
+//	assert(m.cols() == v.size() && "Size mismatch");
+	if (m.cols() != v.size()) throw UndefinedException("Size mismatch");
 	Vector<T> out(m.rows());
 	for (size_t i = 0; i < out.size(); ++i) {
 		out[i] = 0;
@@ -357,7 +366,8 @@ Vector<T> operator*(const Matrix<T> & m, const Vector<T> & v) {
 #define min(a, b) ((a) < (b) ? (a) : (b))
 template<typename T>
 Matrix<T> operator*(const Matrix<T> & m1, const Matrix<T> & m2) {
-	assert(m1.cols() == m2.rows() && "Size mismatch");
+//	assert(m1.cols() == m2.rows() && "Size mismatch");
+	if (m1.cols() != m2.rows()) throw UndefinedException("Dimension mismatch");
 	Matrix<T> out(m1.rows(), m2.cols());
 	size_t stride = sqrt(32000 / sizeof(T) / 3);
 	size_t rows = out.rows();
@@ -382,7 +392,7 @@ Matrix<T> operator*(const Matrix<T> & m1, const Matrix<T> & m2) {
 
 template<typename T>
 Matrix<T> operator+(const Matrix<T> & m1, const Matrix<T> & m2) {
-	assert(m1.rows() == m2.rows() && m1.cols() == m2.cols() && "Size mismatch");
+	if(m1.rows() != m2.rows() && m1.cols() != m2.cols()) throw UndefinedException("Dimension mismatch");
 	Matrix<T> out(m1.rows(), m2.cols());
 	size_t index = 0;
 	size_t s = out.size();
@@ -404,7 +414,7 @@ Matrix<T> operator+(const Matrix<T> & m1, const Matrix<T> & m2) {
 //Element-wise matrix multiplication
 template<typename T>
 Matrix<T> hadamard(const Matrix<T> & m1, const Matrix<T> & m2) {
-	assert(m1.rows() == m2.rows() && m1.cols() == m2.cols() && "Size mismatch");
+	if(m1.rows() != m2.rows() && m1.cols() != m2.cols()) throw UndefinedException("Dimension mismatch");
 	Matrix<T> out(m1.rows(), m2.cols());
 	size_t index = 0;
 	size_t s = out.size();
@@ -469,13 +479,13 @@ Matrix<T> transpose(const Matrix<T> & m) {
 	size_t index = 0;
 	switch (mat.size() % 4) {
 	case 0: do {
-		mat[index] = m.get(index % m.rows(), index / m.cols());
+		mat[index] = m.get(index % m.rows(), index / m.rows());
 		++index;
-	case 3:	mat[index] = m.get(index % m.rows(), index / m.cols());
+	case 3:	mat[index] = m.get(index % m.rows(), index / m.rows());
 		++index;
-	case 2:	mat[index] = m.get(index % m.rows(), index / m.cols());
+	case 2:	mat[index] = m.get(index % m.rows(), index / m.rows());
 		++index;
-	case 1:	mat[index] = m.get(index % m.rows(), index / m.cols());
+	case 1:	mat[index] = m.get(index % m.rows(), index / m.rows());
 		++index;
 	} while (index < mat.size());
 	}
@@ -496,4 +506,17 @@ const static void randomize(Matrix<> & m) {
 template<typename T>
 Matrix<T> fullKernelConvolution(const Matrix<T> & kernel, const Matrix<T> & mat) {
 	return kernel.applyAsKernel(mat.zeroPad(kernel.cols() - 1), 1);
+}
+
+template<typename T>
+Matrix<T> removePadding(const Matrix<T> & mat, size_t padding) {
+	if (padding == 0) return mat;
+	if (padding >= mat.cols() || padding >= mat.rows()) throw UndefinedException(ERR_STR("Invalid padding"));
+	Matrix<T> out(mat.rows() - 2 * padding, mat.cols() - 2 * padding);
+	for (size_t x = padding; x < mat.cols() - padding; ++x) {
+		for (size_t y = padding; y < mat.rows() - padding; ++y) {
+			out(y - padding, x - padding) = mat.get(y, x);
+		}
+	}
+	return out;
 }

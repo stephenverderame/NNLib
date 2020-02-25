@@ -1,6 +1,22 @@
 #pragma once
 #include <vector>
 #include <assert.h>
+#include <exception>
+#define STRFY(X) #X
+#define LINE2STR(X) STRFY(X)
+#define ERR_STR(MSG) __FILE__ "::" LINE2STR(__LINE__) "::" MSG
+class UndefinedException : public std::exception 
+{
+	const char * msg;
+public:
+	UndefinedException(const char * details) {
+		msg = details;
+		fprintf(stderr, msg);
+	}
+	const char * what() const noexcept override {
+		return msg;
+	}
+};
 template<typename T = double>
 class Vector
 {
@@ -80,17 +96,18 @@ public:
 	Vector(const iterator && start, const iterator && end) {
 		vec.insert(vec.end(), start.vec.begin() + start.pos, end.vec.begin() + end.pos);
 	}
-	T& operator[](size_t index) {
+	T& operator[](size_t index) throw(UndefinedException) {
+		if (index >= vec.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return vec[index];
 	}
-	Vector<T> & operator=(const Vector<T> & other) {
+	Vector<T> & operator=(const Vector<T> & other) noexcept {
 		vec = other.vec;
 		return *this;
 	}
-	explicit operator std::vector<T>() {
+	explicit operator std::vector<T>() noexcept {
 		return vec;
 	}
-	Vector<T> & operator*=(T n) {
+	Vector<T> & operator*=(T n) noexcept {
 		size_t index = 0;
 		switch (vec.size() % 4) {
 		case 0: do {
@@ -102,7 +119,7 @@ public:
 		}
 		return *this;
 	}
-	Vector<T> & operator+=(T n) {
+	Vector<T> & operator+=(T n) noexcept {
 		size_t index = 0;
 		switch (vec.size() % 4) {
 		case 0: do {
@@ -114,7 +131,8 @@ public:
 		}
 		return *this;
 	}
-	Vector<T> & operator+=(const Vector<T> & other) {
+	Vector<T> & operator+=(const Vector<T> & other) throw(UndefinedException) {
+		if (vec.size() != other.size()) throw UndefinedException(ERR_STR("Size mismatch"));
 		size_t index = 0;
 		switch (vec.size() % 4) {
 		case 0: do {
@@ -126,7 +144,8 @@ public:
 		}
 		return *this;
 	}
-	Vector<T> & operator-=(const Vector<T> & other) {
+	Vector<T> & operator-=(const Vector<T> & other) throw(UndefinedException) {
+		if (vec.size() != other.size()) throw UndefinedException(ERR_STR("Size mismatch"));
 		size_t index = 0;
 		switch (vec.size() % 4) {
 		case 0: do {
@@ -173,31 +192,33 @@ public:
 		}
 		return v;
 	}
-	void resize(size_t s) {
+	void resize(size_t s) noexcept {
 		vec.resize(s);
 	}
-	void zero() {
+	void zero() noexcept {
 		std::fill(vec.begin(), vec.end(), 0);
 	}
-	size_t size() const {
+	size_t size() const noexcept {
 		return vec.size();
 	}
-	T get(size_t index) const {
+	T get(size_t index) const throw(UndefinedException) {
+		if (index >= vec.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return vec[index];
 	}
-	iterator begin() {
+	iterator begin() noexcept {
 		return iterator(0, vec);
 	}
-	iterator end() {
+	iterator end() noexcept {
 		return iterator(vec.size(), vec);
 	}
-	iterator at(size_t index) {
+	iterator at(size_t index) throw(UndefinedException) {
+		if (index >= vec.size()) throw UndefinedException(ERR_STR("Index out of bounds"));
 		return iterator(index, vec);
 	}
-	decltype(auto) vbegin() {
+	decltype(auto) vbegin() noexcept {
 		return vec.begin();
 	}
-	decltype(auto) vend() {
+	decltype(auto) vend() noexcept {
 		return vec.end();
 	}
 	Vector() = default;
@@ -283,8 +304,8 @@ Vector<T> operator+(const Vector<T> & v, const T n) {
 }
 
 template<typename T>
-Vector<T> operator+(const Vector<T> & v1, const Vector<T> & v2) {
-	assert(v1.size() == v2.size() && "Sizes must be equal");
+Vector<T> operator+(const Vector<T> & v1, const Vector<T> & v2) throw(UndefinedException) {
+	if (v1.size() != v2.size()) throw UndefinedException(ERR_STR("Sizes must match"));
 	Vector<T> vec(v1.size());
 	size_t index = 0;
 	switch (vec.size() % 4) {
@@ -303,8 +324,8 @@ Vector<T> operator+(const Vector<T> & v1, const Vector<T> & v2) {
 }
 
 template<typename T>
-Vector<T> operator-(const Vector<T> & v1, const Vector<T> & v2) {
-	assert(v1.size() == v2.size() && "Sizes must be equal");
+Vector<T> operator-(const Vector<T> & v1, const Vector<T> & v2) throw(UndefinedException) {
+	if (v1.size() != v2.size()) throw UndefinedException(ERR_STR("Sizes must match"));
 	Vector<T> vec(v1.size());
 	size_t index = 0;
 	switch (vec.size() % 4) {
@@ -323,8 +344,8 @@ Vector<T> operator-(const Vector<T> & v1, const Vector<T> & v2) {
 }
 
 template<typename T>
-Vector<T> hadamard(const Vector<T> & v1, const Vector<T> & v2) {
-	assert(v1.size() == v2.size() && "Sizes must be equal");
+Vector<T> hadamard(const Vector<T> & v1, const Vector<T> & v2) throw (UndefinedException) {
+	if (v1.size() != v2.size()) throw UndefinedException(ERR_STR("Sizes must match"));
 	Vector<T> vec(v1.size());
 	size_t index = 0;
 	switch (vec.size() % 4) {
@@ -344,7 +365,7 @@ Vector<T> hadamard(const Vector<T> & v1, const Vector<T> & v2) {
 
 template<typename T>
 T dot(const Vector<T> & v1, const Vector<T> & v2) {
-	assert(v1.size() == v2.size() && "Sizes must be equal");
+	if (v1.size() != v2.size()) throw UndefinedException(ERR_STR("Sizes must match"));
 	T dot = 0;
 	size_t index = 0;
 	switch (v1.size() % 4) {
@@ -364,7 +385,7 @@ T dot(const Vector<T> & v1, const Vector<T> & v2) {
 
 template<typename T>
 T dist(const Vector<T> & v1, const Vector<T> & v2) {
-	assert(v1.size() == v2.size() && "Sizes must be equal");
+	if (v1.size() != v2.size()) throw UndefinedException(ERR_STR("Sizes must match"));
 	T dist = 0;
 	size_t index = 0;
 	switch (v1.size() % 4) {
