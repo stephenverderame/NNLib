@@ -14,7 +14,7 @@ struct layerData {
 struct convData : public layerData {
 	size_t kernelSize, padding, stride, kernels;
 	bool sharing;
-	//if stride is 1, padding can be set to -1 to autocalculate valid padding
+	//if stride is 1, padding can be set to defaultVal to autocalculate valid padding
 	convData(size_t kSize, size_t kernels, bool sharing, size_t stride = 1, size_t pad = defaultVal) : layerData(layer_t::conv), kernelSize(kSize), padding(pad), stride(stride),
 		kernels(kernels), sharing(sharing) {};
 };
@@ -90,6 +90,9 @@ public:
 	AdvancedFeedForward(dimensionData inputDims, dimensionData outputSize, std::initializer_list<layerData *> layers);
 	~AdvancedFeedForward();
 	Vector<> calculate(const Vector<> & input) const override;
+	/**
+	* Online gradient descent. Should be called immediately after calculate
+	*/
 	void backprop(const Vector<> & out, const Vector<> & real) override;
 
 	/**Sets the learning rates for all of the networks layers

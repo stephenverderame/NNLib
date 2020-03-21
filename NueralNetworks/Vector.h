@@ -1,22 +1,6 @@
 #pragma once
 #include <vector>
-#include <assert.h>
-#include <exception>
-#define STRFY(X) #X
-#define LINE2STR(X) STRFY(X)
-#define ERR_STR(MSG) __FILE__ "::" LINE2STR(__LINE__) "::" MSG
-class UndefinedException : public std::exception 
-{
-	const char * msg;
-public:
-	UndefinedException(const char * details) {
-		msg = details;
-		fprintf(stderr, msg);
-	}
-	const char * what() const noexcept override {
-		return msg;
-	}
-};
+#include "Error.h"
 template<typename T = double>
 class Vector
 {
@@ -366,21 +350,21 @@ Vector<T> hadamard(const Vector<T> & v1, const Vector<T> & v2) throw (UndefinedE
 template<typename T>
 T dot(const Vector<T> & v1, const Vector<T> & v2) {
 	if (v1.size() != v2.size()) throw UndefinedException(ERR_STR("Sizes must match"));
-	T dot = 0;
+	T dt = 0;
 	size_t index = 0;
 	switch (v1.size() % 4) {
 	case 0: do {
-			dot += v1.get(index) * v2.get(index);
+			dt += v1.get(index) * v2.get(index);
 			++index;
-	case 3:	dot += v1.get(index) * v2.get(index);
+	case 3:	dt += v1.get(index) * v2.get(index);
 		++index;
-	case 2:	dot += v1.get(index) * v2.get(index);
+	case 2:	dt += v1.get(index) * v2.get(index);
 		++index;
-	case 1:	dot += v1.get(index) * v2.get(index);
+	case 1:	dt += v1.get(index) * v2.get(index);
 		++index;
 		} while (index < v1.size());
 	}
-	return sqrt(dot);
+	return dt;
 }
 
 template<typename T>
@@ -448,4 +432,18 @@ const static Vector<> mean(std::vector<Vector<>> & v) {
 		out += *it;
 	out *= 1.0 / v.size();
 	return out;
+}
+//Returns the index of the maximum element
+//For use in converting output of fc layer to categories
+template <typename T>
+const static size_t getMaxIndex(const Vector<T> & v) {
+	T max = std::numeric_limits<T>::min();
+	size_t index;
+	for (size_t i = 0; i < v.size(); ++i) {
+		if (v.get(i) > max) {
+			index = i;
+			max = v.get(i);
+		}
+	}
+	return index;
 }

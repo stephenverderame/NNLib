@@ -2,7 +2,7 @@
 
 std::vector<Matrix<>> Layer::unflatten(const Matrix<>& vector, const dimensionData & dims)
 {
-	assert(vector.cols() == 1 && vector.size() == dims.width * dims.height * dims.depth && "Input vector cannot be correctly unflattened to specified with and depth");
+	if(vector.cols() != 1 && vector.size() != dims.width * dims.height * dims.depth) throw UndefinedException(ERR_STR("Input vector cannot be correctly unflattened to specified with and depth"));
 	std::vector<Matrix<>> out;
 	for (size_t i = 0; i < dims.depth; ++i)
 		out.emplace_back(dims.height, dims.width);
@@ -77,7 +77,7 @@ std::vector<Matrix<>> ConvLayer::calculate(std::vector<Matrix<>>& inputs)
 		buf += biases[i];
 		out.push_back(buf);
 	}
-	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
+//	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
 	return out;
 }
 
@@ -93,12 +93,12 @@ std::vector<Matrix<>> ConvLayer::backprop(std::vector<Matrix<>>& costs)
 			//temp is the zero padded inputs
 			buf += costs[i].applyAsKernel(temp[j], stride);
 		}
+		Matrix<> oBuf = fullKernelConvolution(kernels[i][0].rotate180(), costs[i]);
 		kernels[i][0] -= learningRate * buf;
 		double costSum = 0;
 		for (size_t j = 0; j < costs[i].size(); ++j)
 			costSum += costs[i][j];
-		biases[i] -= learningRate * costSum;
-		Matrix<> oBuf = fullKernelConvolution(kernels[i][0].rotate180(), costs[i]);
+		biases[i] -= learningRate * costSum;		
 		output.push_back(removePadding(oBuf, padding));
 	}
 	return output;
@@ -135,7 +135,7 @@ std::vector<Matrix<>> ActivationLayer::calculate(std::vector<Matrix<>>& inputs)
 	for (Matrix<> & m : inputs) {
 		out.push_back(function(m));
 	}
-	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
+//	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
 	return out;
 }
 
@@ -163,7 +163,7 @@ std::vector<Matrix<>> PoolingLayer::calculate(std::vector<Matrix<>>& inputs)
 	std::vector<Matrix<>> out;
 	for (Matrix<> & m : inputs)
 		out.push_back(m.maxPool(size, stride));
-	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
+//	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
 	return out;
 }
 
@@ -173,7 +173,7 @@ std::vector<Matrix<>> PoolingLayer::calculate(std::vector<Matrix<>>& inputs)
 */
 std::vector<Matrix<>> PoolingLayer::backprop(std::vector<Matrix<>>& costs)
 {
-	assert(temp.size() == costs.size() && "Input and output dimensions don't match");
+	if(temp.size() != costs.size()) throw UndefinedException(ERR_STR("Input and output dimensions don't match"));
 	std::vector<Matrix<>> out;
 	for (size_t i = 0; i < temp.size(); ++i) {
 		Matrix<> buf(temp[i].rows(), temp[i].cols());
@@ -220,13 +220,13 @@ std::vector<Matrix<>> FCLayer::calculate(std::vector<Matrix<>>& inputs)
 	temp[0] = t;
 	std::vector<Matrix<>> out;
 	out.push_back(static_cast<Matrix<>>(weights * t + biases));
-	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
+//	outputDimensions = { out[0].cols(), out[0].rows(), out.size() };
 	return out;
 }
 
 std::vector<Matrix<>> FCLayer::backprop(std::vector<Matrix<>>& costs)
 {
-	assert(costs.size() == 1 && "Backprop on fully connected layer is expected to be a vector");
+	if(costs.size() != 1) throw UndefinedException(ERR_STR("Backprop on fully connected layer is expected to be a vector"));
 	//dCdB is costs[0]
 	Matrix<> dCdW = costs[0] * transpose(temp[0]);
 	biases -= learningRate * static_cast<Vector<>>(costs[0]);

@@ -157,20 +157,49 @@ int main() {
 	*/
 	convData c(5, 10, true);
 //	convData c2(5, 2, 1, 10, 10, true);
-	activationData a(fsig_m, d_fsig_m);
+	activationData a(reLu, d_reLu);
 	poolData p;
 	fcData fc(10);
-//	AdvancedFeedForward net(28, 1, 10, {&c, &a, &c, &a, &p, &c, &a, &c, &a, &fc});
-	AdvancedFeedForward net({ 28, 28, 1 }, {1, 10, 1}, { &c, &a, &c, &a, &p, &fc, &a });
-	Matrix<> test(28, 28);
+	activationData fa(fsig_m, d_fsig_m);
+	AdvancedFeedForward net({ 28, 28, 1 }, {1, 10, 1}, { &c, &fc, &fa});
+/*	Matrix<> test(28, 28);
 	randomize(test);
-	Vector<> out = net.calculate((Vector<>)test);
+//	Vector<> out = net.calculate((Vector<>)test);
 	std::cout << out << std::endl;
 	std::cout << "Size: " << out.size() << std::endl;
 	Vector<> testReal(10);
 	testReal[3] = 1.0;
-	net.backprop(out, testReal);
+//	net.backprop(out, testReal);
 	printf("Done!\n");
+	printf("Read\n");*/
+	auto img = mnist::readImages("C:\\Users\\stephen\\Downloads\\MNIST\\t10k-images.idx3-ubyte");
+	auto lbl = mnist::readLabels("C:\\Users\\stephen\\Downloads\\MNIST\\train-labels.idx1-ubyte");
+	Vector<> real2(10);
+	Vector<> test2;
+	net.setLearningRates({ 0.7 });
+	size_t correct = 0;
+	for (int i = 0; i < 1000; ++i) {
+		test2 = img[i % img.size()];
+		real2.zero();
+		real2[lbl[i % lbl.size()]] = 1.0;
+		Vector<> out2 = net.calculate(test2);
+		printf("Cost: %f\n", dot(out2 - real2, out2 - real2));
+		net.backprop(out2, real2);
+		if (getMaxIndex(out2) == lbl[i % lbl.size()]) ++correct;
+		if (i % 10 == 0) printf("%d / %d Correct!\n", correct, i);
+	}
+	printf("%d / 1000\n", correct);
+	printf("Done\n");
+/*	convData tC(3, 2, true);
+	fcData tF(1);
+	AdvancedFeedForward tNet({ 1, 1, 1 }, { 1, 1, 1 }, {&tC, &tC, &tF, &fa});
+	for (int i = 0; i < 200; ++i) {
+		Vector<> in = { (double)rand() / RAND_MAX };
+		Vector<> r = { 1.0 };
+		auto out = tNet.calculate(in);
+		printf("Out: %f Cost: %f\n", out[0], hadamard(out - r, out - r)[0]);
+		tNet.backprop(out, r);
+	}*/
 	getchar();
 	return 0;
 }

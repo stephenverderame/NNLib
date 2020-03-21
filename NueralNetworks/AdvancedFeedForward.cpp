@@ -60,7 +60,7 @@ Vector<> AdvancedFeedForward::calculate(const Vector<>& input) const
 
 void AdvancedFeedForward::backprop(const Vector<>& out, const Vector<>& real)
 {
-	Matrix<> gradient = static_cast<Matrix<>>(2.0 * (real - out));
+	Matrix<> gradient = static_cast<Matrix<>>(2.0 * (out - real));
 	std::vector<Mat> grads;
 	grads.push_back(gradient);
 	for (int i = layers.size() - 1; i >= 0; --i) {
@@ -70,7 +70,7 @@ void AdvancedFeedForward::backprop(const Vector<>& out, const Vector<>& real)
 
 void AdvancedFeedForward::setLearningRates(std::initializer_list<double> rates)
 {
-	assert((rates.size() == layers.size() && rates.size() > 1) && "Each layer must have a learning rate!");
+	assert((rates.size() == layers.size() || rates.size() == 1) && "Each layer must have a learning rate!");
 	if (rates.size() == 1) {
 		for (auto& l : layers) {
 			l->setLearningRate(*rates.begin());

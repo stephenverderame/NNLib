@@ -193,6 +193,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="AdvancedFeedForward.h" />
+    <ClInclude Include="Error.h" />
     <ClInclude Include="FeedForward.h" />
     <ClInclude Include="GPGPU.h" />
     <ClInclude Include="Layer.h" />
